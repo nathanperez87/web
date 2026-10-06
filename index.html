@@ -16356,8 +16356,7 @@ function generateAllStudentsReport(
             })
         )
     );
-}
-function generateStudentReport() {
+}function generateStudentReport() {
     // ==========================================
     // FILTROS
     // ==========================================
@@ -16373,17 +16372,17 @@ function generateStudentReport() {
 
     const studentId =
         document.getElementById(
-            'studentReportStudent'
+            'reportStudent'
         )?.value || '';
 
     const startDate =
         document.getElementById(
-            'reportStartDate'
+            'studentStartDate'
         )?.value || '';
 
     const endDate =
         document.getElementById(
-            'reportEndDate'
+            'studentEndDate'
         )?.value || '';
 
     const summaryContainer =
@@ -16419,6 +16418,19 @@ function generateStudentReport() {
         mostrarNotificacion(
             'Seleccione un estudiante',
             'warning'
+        );
+        return;
+    }
+
+    // ==========================================
+    // TODOS LOS ESTUDIANTES
+    // ==========================================
+    if (studentId === 'ALL') {
+        generateAllStudentsReport(
+            group,
+            subGroup,
+            startDate,
+            endDate
         );
         return;
     }
@@ -16501,8 +16513,8 @@ function generateStudentReport() {
     // ==========================================
     // SESIONES REALES
     //
-    // Incluimos realizadas + suspendidas
-    // para historial.
+    // classSessions es la única fuente
+    // histórica de sesiones.
     // ==========================================
     const sessions =
         getAcademicReportSessions({
@@ -16510,31 +16522,29 @@ function generateStudentReport() {
                 selectedClasses.map(
                     clase => clase.id
                 ),
-
             startDate,
             endDate,
-
             states: [
                 'Realizada',
                 'Suspendida'
             ]
         });
 
-    const summary =
+    const sessionSummary =
         getAcademicSessionSummary(
             sessions
         );
 
     const completedSessions =
-        summary.sesionesRealizadas;
+        sessionSummary.sesionesRealizadas;
 
     const suspendedSessions =
-        summary.sesionesSuspendidas;
+        sessionSummary.sesionesSuspendidas;
 
     // ==========================================
-    // ESTADÍSTICAS DEL ESTUDIANTE
+    // ESTADÍSTICAS ACADÉMICAS
     //
-    // SOLO REALIZADAS.
+    // SOLO sesiones realizadas.
     // ==========================================
     const stats =
         buildAcademicStudentStats(
@@ -16544,6 +16554,8 @@ function generateStudentReport() {
 
     // ==========================================
     // ALERTAS
+    //
+    // Las suspendidas nunca participan.
     // ==========================================
     const attendanceAlert =
         getStudentAttendanceAlert(
@@ -16559,6 +16571,8 @@ function generateStudentReport() {
 
     // ==========================================
     // TENDENCIA
+    //
+    // También solamente sesiones realizadas.
     // ==========================================
     const trendData =
         buildStudentTrendData(
@@ -16567,15 +16581,34 @@ function generateStudentReport() {
         );
 
     // ==========================================
+    // TASA DE REALIZACIÓN
+    // ==========================================
+    const totalSessions =
+        sessions.length;
+
+    const completionRate =
+        totalSessions > 0
+            ? Number(
+                (
+                    completedSessions.length *
+                    100 /
+                    totalSessions
+                ).toFixed(1)
+            )
+            : 0;
+
+    // ==========================================
     // TABLA DE SESIONES
     // ==========================================
     let rows = '';
 
     sessions.forEach(
         session => {
-
             // ==================================
             // SUSPENDIDA
+            //
+            // No consulta asistencia.
+            // No genera Sin registrar.
             // ==================================
             if (
                 session.estado ===
@@ -16602,11 +16635,11 @@ function generateStudentReport() {
                         </td>
 
                         <td>
-                            -
+                            N/A
                         </td>
 
                         <td>
-                            -
+                            N/A
                         </td>
 
                         <td>
@@ -16617,10 +16650,41 @@ function generateStudentReport() {
                         </td>
 
                         <td>
-                            ${escapeHtml(
-                                session.nota ||
-                                'Sin nota registrada'
-                            )}
+                            <strong>
+                                ${escapeHtml(
+                                    session.motivoSuspension ||
+                                    'Sin motivo especificado'
+                                )}
+                            </strong>
+
+                            ${
+                                session.detalleSuspension
+                                    ? `
+                                        <div
+                                            style="
+                                                margin-top:4px;
+                                                font-size:11px;
+                                                color:#777;
+                                            "
+                                        >
+                                            ${escapeHtml(
+                                                session.detalleSuspension
+                                            )}
+                                        </div>
+                                    `
+                                    : ''
+                            }
+
+                            <div
+                                style="
+                                    margin-top:5px;
+                                "
+                            >
+                                ${escapeHtml(
+                                    session.nota ||
+                                    'Sin nota registrada'
+                                )}
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -16629,7 +16693,7 @@ function generateStudentReport() {
             }
 
             // ==================================
-            // REALIZADA
+            // SESIÓN REALIZADA
             // ==================================
             const att =
                 getStudentAttendance(
@@ -16644,21 +16708,15 @@ function generateStudentReport() {
             let statusLabel =
                 '⚪ Sin registrar';
 
-            if (
-                status === 'P'
-            ) {
+            if (status === 'P') {
                 statusLabel =
                     '✅ Presente';
             }
-            else if (
-                status === 'A'
-            ) {
+            else if (status === 'A') {
                 statusLabel =
                     '❌ Ausente';
             }
-            else if (
-                status === 'E'
-            ) {
+            else if (status === 'E') {
                 statusLabel =
                     '📝 Excusa';
             }
@@ -16670,7 +16728,7 @@ function generateStudentReport() {
                             ? '⭐ Sí'
                             : 'No'
                     )
-                    : '-';
+                    : 'N/A';
 
             rows += `
                 <tr>
@@ -16725,7 +16783,7 @@ function generateStudentReport() {
                 📅
                 <strong>Sesiones</strong>
                 <br>
-                ${sessions.length}
+                ${totalSessions}
             </div>
 
             <div>
@@ -16740,6 +16798,13 @@ function generateStudentReport() {
                 <strong>Suspendidas</strong>
                 <br>
                 ${suspendedSessions.length}
+            </div>
+
+            <div>
+                📈
+                <strong>Tasa de realización</strong>
+                <br>
+                ${completionRate.toFixed(1)}%
             </div>
 
             <div>
@@ -16796,13 +16861,25 @@ function generateStudentReport() {
     `;
 
     // ==========================================
+    // NOMBRE COMPLETO
+    // ==========================================
+    const studentName =
+        [
+            student.nombre,
+            student.apellido
+        ]
+        .filter(Boolean)
+        .join(' ') ||
+        student.name ||
+        'Sin nombre';
+
+    // ==========================================
     // RESULTADOS
     // ==========================================
     resultsContainer.style.display =
         'block';
 
     resultsContainer.innerHTML = `
-
         <h3>
             👤 Reporte de Estudiante
         </h3>
@@ -16814,11 +16891,7 @@ function generateStudentReport() {
             "
         >
             <strong>
-                ${escapeHtml(
-                    student.nombre ||
-                    student.name ||
-                    'Sin nombre'
-                )}
+                ${escapeHtml(studentName)}
             </strong>
         </p>
 
@@ -16837,9 +16910,15 @@ function generateStudentReport() {
             Las estadísticas académicas utilizan
             únicamente sesiones realizadas.
             Las sesiones suspendidas se conservan
-            en el historial, pero no afectan la
-            asistencia, participación ni las alertas.
+            en el historial institucional, pero
+            no generan asistencia pendiente,
+            estudiantes sin registrar,
+            participación ni alertas.
         </p>
+
+        <!-- ==================================
+             ALERTAS
+        =================================== -->
 
         <div
             style="
@@ -16866,7 +16945,9 @@ function generateStudentReport() {
                     Asistencia
                 </strong>
                 <br>
-                ${attendanceAlert.text}
+                ${escapeHtml(
+                    attendanceAlert.text
+                )}
             </div>
 
             <div
@@ -16881,22 +16962,56 @@ function generateStudentReport() {
                     Participación
                 </strong>
                 <br>
-                ${participationAlert.text}
+                ${escapeHtml(
+                    participationAlert.text
+                )}
             </div>
 
         </div>
+
+        <!-- ==================================
+             TENDENCIA
+        =================================== -->
 
         ${
             trendData.length
                 ? `
                     <div
-                        class="chart-container"
-                        style="height:320px;"
+                        style="
+                            margin-top:20px;
+                            margin-bottom:25px;
+                        "
                     >
-                        <canvas
-                            id="studentTrendChart"
+                        <h4
+                            style="
+                                margin-bottom:5px;
+                                color:#2c3e50;
+                            "
                         >
-                        </canvas>
+                            📈 Evolución del estudiante
+                        </h4>
+
+                        <p
+                            style="
+                                margin:0 0 15px;
+                                color:#777;
+                                font-size:12px;
+                            "
+                        >
+                            Evolución acumulada de
+                            asistencia y participación
+                            en sesiones realizadas.
+                        </p>
+
+                        <div
+                            class="chart-container"
+                            style="height:320px;"
+                        >
+                            <canvas
+                                id="studentTrendChart"
+                            >
+                            </canvas>
+                        </div>
                     </div>
                 `
                 : `
@@ -16916,10 +17031,21 @@ function generateStudentReport() {
                 `
         }
 
+        <!-- ==================================
+             HISTORIAL
+        =================================== -->
+
+        <h4
+            style="
+                margin:20px 0 10px;
+                color:#2c3e50;
+            "
+        >
+            📝 Historial académico
+        </h4>
+
         <div class="table-container">
-
             <table>
-
                 <thead>
                     <tr>
                         <th>Fecha</th>
@@ -16945,9 +17071,7 @@ function generateStudentReport() {
                         `
                     }
                 </tbody>
-
             </table>
-
         </div>
     `;
 
@@ -16963,57 +17087,49 @@ function generateStudentReport() {
             trendData
         );
     }
-    else if (
-        dashboardCharts.studentTrend
-    ) {
-        dashboardCharts
-            .studentTrend
-            .destroy();
+    else {
+        if (
+            dashboardCharts.studentTrend
+        ) {
+            dashboardCharts
+                .studentTrend
+                .destroy();
 
-        delete dashboardCharts
-            .studentTrend;
+            delete dashboardCharts
+                .studentTrend;
+        }
     }
 
     // ==========================================
     // DIAGNÓSTICO
     // ==========================================
     console.log(
-        '✅ Reporte de Estudiante normalizado:',
+        '✅ Reporte individual de estudiante normalizado:',
         {
             estudiante:
-                student.nombre ||
-                student.name,
-
+                studentName,
             grupo:
                 group,
-
             subgrupo:
                 subGroup,
-
             sesiones:
-                sessions.length,
-
+                totalSessions,
             realizadas:
                 completedSessions.length,
-
             suspendidas:
                 suspendedSessions.length,
-
             presentes:
                 stats.presentes,
-
             ausentes:
                 stats.ausentes,
-
             excusas:
                 stats.excusas,
-
             sinRegistrar:
                 stats.sinRegistrar,
-
+            participaciones:
+                stats.participaciones,
             asistencia:
                 stats.asistencia,
-
             participacion:
                 stats.participacion
         }
